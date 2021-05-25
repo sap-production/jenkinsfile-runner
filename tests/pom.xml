@@ -4,7 +4,7 @@
   <parent>
     <groupId>io.jenkins.jenkinsfile-runner</groupId>
     <artifactId>parent</artifactId>
-    <version>1.0-beta-8-SNAPSHOT</version>
+    <version>1.0-beta-25-SNAPSHOT</version>
   </parent>
 
   <artifactId>tests</artifactId>
@@ -23,7 +23,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>1.6.0</version>
+            <version>3.0.0</version>
             <executions>
               <execution>
                 <id>test</id>

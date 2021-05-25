@@ -28,17 +28,17 @@ THE SOFTWARE.
   <parent>
     <groupId>org.jenkins-ci</groupId>
     <artifactId>jenkins</artifactId>
-    <version>1.39</version>
+    <version>1.63</version>
     <relativePath />
   </parent>
 
   <groupId>io.jenkins.jenkinsfile-runner</groupId>
   <artifactId>parent</artifactId>
-  <version>1.0-beta-8-SNAPSHOT</version>
+  <version>1.0-beta-28-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Jenkinsfile Runner</name>
-  <description>Jenkinsfile runner parent</description>
+  <description>Jenkinsfile runner parent POM</description>
 
   <licenses>
     <license>
@@ -54,52 +54,66 @@ THE SOFTWARE.
     <module>payload-dependencies</module>
     <module>payload</module>
     <module>app</module>
-    <module>tests</module>
+    <module>packaging-parent-resources</module>
+    <module>packaging-parent-pom</module>
+    <module>packaging-slim-parent-pom</module>
+    <!-- more modules come from profiles -->
   </modules>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <java.level>8</java.level>
-    <jenkins.version>2.89</jenkins.version>
-    <jetty.version>9.4.5.v20170502</jetty.version>
+    <jenkins.version>2.277.2</jenkins.version>
+    <jenkins.bom.baseline>bom-2.277.x</jenkins.bom.baseline>
+    <jenkins.bom.version>831.v9814430e6383</jenkins.bom.version>
+    <jetty.version>9.4.39.v20210325</jetty.version>
+    <jenkins-test-harness.version>1565.v51970ebd7896</jenkins-test-harness.version>
+    <!--TODO: Reenable once all the issues are fixed (JENKINS-57353)-->
+    <findbugs.failOnError>false</findbugs.failOnError>
   </properties>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>commons-collections</groupId>
-        <artifactId>commons-collections</artifactId>
-        <version>3.2.2</version>
+        <groupId>io.jenkins.tools.bom</groupId>
+        <artifactId>${jenkins.bom.baseline}</artifactId>
+        <version>${jenkins.bom.version}</version>
+        <scope>import</scope>
+        <type>pom</type>
       </dependency>
       <dependency>
-        <groupId>commons-logging</groupId>
-        <artifactId>commons-logging</artifactId>
-        <version>1.2</version>
+        <groupId>org.jenkins-ci.main</groupId>
+        <artifactId>jenkins-bom</artifactId>
+        <version>${jenkins.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
+
+      <!-- Extra libraries -->
       <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-jdk14</artifactId>
-        <version>1.7.25</version>
+        <groupId>io.jenkins.lib</groupId>
+        <artifactId>support-log-formatter</artifactId>
+        <version>1.0</version>
       </dependency>
-      <!-- Annotation engine which we want to keep at recent versions instead of ones bundled in the core -->
-      <dependency>
-        <groupId>org.jenkins-ci</groupId>
-        <artifactId>symbol-annotation</artifactId>
-        <version>1.7</version>
+      <dependency> <!-- Upper bounds prevention between Pipeline as YAML and JCAsC-->
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.12.0</version>
       </dependency>
+
+      <!-- Plugins -->
       <dependency>
-        <groupId>org.jenkins-ci</groupId>
-        <artifactId>annotation-indexer</artifactId>
-        <version>1.12</version>
+        <groupId>org.jenkins-ci.plugins</groupId>
+        <artifactId>pipeline-utility-steps</artifactId>
+        <version>2.7.1</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
 
   <dependencies>
     <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>annotations</artifactId>
-      <version>3.0.1</version>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
     </dependency>
   </dependencies>
 
@@ -109,7 +123,6 @@ THE SOFTWARE.
         <!-- to treat executable-war type of artifact correctly -->
         <groupId>org.jenkins-ci.tools</groupId>
         <artifactId>maven-hpi-plugin</artifactId>
-        <version>3.3</version>
         <extensions>true</extensions>
       </plugin>
       <plugin>
@@ -161,4 +174,57 @@ THE SOFTWARE.
     <url>https://github.com/jenkinsci/jenkinsfile-runner</url>
     <tag>HEAD</tag>
   </scm>
+
+  <profiles>
+    <profile>
+      <id>package-vanilla</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>vanilla-package</module>
+      </modules>
+    </profile>
+    <profile>
+      <!-- Integration tests -->
+      <id>run-its</id>
+      <modules>
+        <module>tests</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>jacoco</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.7</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>prepare-agent</goal>
+                </goals>
+              </execution>
+             <execution>
+                <id>report</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>report-aggregate</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <!-- TODO: delete once https://github.com/jenkinsci/pom/pull/138 is integrated -->
+          <plugin>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>${maven-surefire-plugin.version}</version>
+            <configuration>
+              <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true ${argLine}</argLine>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

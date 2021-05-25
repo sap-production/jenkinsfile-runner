@@ -24,31 +24,26 @@ for (int i = 0; i < platforms.size(); ++i) {
                     }
 
                     stage('Build') {
-                        withEnv([
-                            "JAVA_HOME=${tool 'jdk8'}",
-                            "PATH+MVN=${tool 'mvn'}/bin",
-                            'PATH+JDK=$JAVA_HOME/bin',
-                        ]) {
-                            timeout(30) {
-                                String command = 'mvn --batch-mode clean package -Dmaven.test.failure.ignore=true -Denvironment=test'
-                                if (isUnix()) {
-                                    sh command
-                                } else {
-                                    bat command
-                                }
-                            }
+                        timeout(60) {
+                            infra.runMaven(['clean', 'verify', '-Dmaven.test.failure.ignore=true', '-Denvironment=test', '-Ppackage-app,package-vanilla,jacoco'])
                         }
                     }
 
-                    // TODO: Add some tests first
                     stage('Archive') {
                         /* Archive the test results */
-                        // junit '**/target/surefire-reports/TEST-*.xml'
+                        junit '**/target/surefire-reports/TEST-*.xml'
 
-                        //if (label == 'linux') {
-                        //  archiveArtifacts artifacts: '**/target/**/*.jar'
-                        //  findbugs pattern: '**/target/findbugsXml.xml'
-                        //}
+                        if (label == 'linux') {
+                            // Artifacts are heavy, we do not archive them
+                            // archiveArtifacts artifacts: '**/target/**/*.jar'
+                            
+                            recordIssues(
+                              enabledForFailure: true, aggregatingResults: true, 
+                              tools: [java(), spotBugs(pattern: '**/target/spotbugsXml.xml')]
+                            )
+
+                            publishCoverage adapters: [jacocoAdapter(mergeToOneReport: true, path: 'vanilla-package/target/site/jacoco-aggregate/*.xml')]
+                        }
                     }
                 }
             }
@@ -59,7 +54,7 @@ for (int i = 0; i < platforms.size(); ++i) {
 /* Execute our platforms in parallel */
 parallel(branches)
 
-stage('Verify demos')
+stage('Verify Custom WAR Packager demo')
 Map demos = [:]
 demos['cwp'] = {
     node('docker') {
@@ -68,20 +63,6 @@ demos['cwp'] = {
                 checkout scm
                 stage('CWP') {
                     dir('demo/cwp') {
-                        sh "make clean buildInDocker run"
-                    }
-                }
-            }
-        }
-    }
-}
-demos['databound'] = {
-    node('docker') {
-        timestamps {
-            ws("databound_${branchName}_${buildNumber}") {
-                checkout scm
-                stage('Databound') {
-                    dir('demo/databound') {
                         sh "make clean buildInDocker run"
                     }
                 }
@@ -106,18 +87,20 @@ node('docker') {
                     def shortCommit = scmVars.GIT_COMMIT
                     imageTag = branchName.equals("master") ? "latest" : branchName
                     echo "Creating the container ${imageName}:${imageTag}"
-                    image = docker.build("${imageName}:${imageTag}", '--no-cache --rm .')
+                    sh "docker build -t ${imageName}:${imageTag} --no-cache --rm -f packaging/docker/unix/adoptopenjdk-8-hotspot/Dockerfile ."
                 }
             }
 
-            if (branchName.startsWith('master')) {
-                stage('Publish container') {
-                    timestamps {
-                        image.push();
-                    }
-                }
-            }
+  // TODO(oleg-nenashev): Reenable once CI is stable
+  //          if (branchName.startsWith('master')) {
+  //              stage('Publish container') {
+  //                  timestamps {
+  //                      image.push();
+  //                  }
+  //              }
+  //          }
         }
     }
 }
 
+// TODO: Run integration tests
